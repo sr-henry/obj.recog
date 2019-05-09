@@ -1,14 +1,15 @@
 import numpy as np
-from win32api import GetCursorPos, RGB
+from win32api import GetCursorPos, RGB, GetAsyncKeyState
 from PIL import ImageGrab
 from time import sleep
-from math import ceil
 import overlay
 from win32gui import GetDC
+import win32con
 
 _overlay = overlay.Overlay(GetDC(0))
 
-fov = 25
+fov = 30
+confidence = 200
 
 def have_neighbors(matrix, point):
     nhs = 5
@@ -19,14 +20,6 @@ def have_neighbors(matrix, point):
     if result < nhs**2:
         return False
     return True
-
-def reshape(index):
-    ncol = fov * 2
-    lin = ceil(((index + 1) / ncol)) - 1
-    col = ((index + 1) % ncol) - 1
-    if col == -1:
-        col = ncol - 1
-    return col, lin
 
 def rgb2int(rgb):
     rgb_int = rgb[0]
@@ -40,22 +33,24 @@ def detection(x, y, config):
     #?
     mapped = np.array(list(map(rgb2int, image))).reshape((fov * 2), (fov * 2))
     result = np.asarray(np.intersect1d(mapped, config))
-    if result.size >= 200:
+    if result.size >= confidence:
         mask = np.isin(mapped, result)
         _x, _y = np.where(mask)
         coords = np.hstack((_y.reshape(_y.size, 1), _x.reshape(_x.size, 1)))
         zeros = np.zeros(mapped.shape, dtype=int)
         np.place(zeros, mask, result)
+        #?
         for c in coords:
              if not have_neighbors(zeros, c):
                  np.delete(coords, c)
         #OVERLAY
-        pxmap = list(map(lambda r: (((x - fov) + r[0]), ((y - fov) + r[1])), coords.tolist()))
-        _overlay.create_pixelmap(pxmap, RGB(0, 255, 0))
+        p1 = np.amin(coords, axis=0)
+        p2 = np.amax(coords, axis=0)
+        box = (p1[0]+(x - fov), p1[1]+(y - fov), p2[0]+(x - fov), p2[1]+(y - fov))
+        _overlay.create_box(box, RGB(255, 0, 255))
 
 
 def main():
-
     try:
         config = np.loadtxt('config.txt', dtype=int, delimiter='\n')
         print('Loaded')
@@ -63,9 +58,24 @@ def main():
         print(err)
         return
 
+    is_on = False
+
     while True:
-        current_x, current_y = GetCursorPos()
-        detection(current_x, current_y, config)
+        if GetAsyncKeyState(win32con.VK_HOME):
+            if is_on:
+                is_on = False
+                print('Detection Stoped')
+            else:
+                is_on = True
+                print('Detection Started')
+            sleep(.2)
+
+        if GetAsyncKeyState(win32con.VK_END):
+            break
+
+        if is_on:
+            current_x, current_y = GetCursorPos()
+            detection(current_x, current_y, config)
         sleep(.1)
 
 
