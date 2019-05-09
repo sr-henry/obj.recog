@@ -8,8 +8,9 @@ import win32con
 
 _overlay = overlay.Overlay(GetDC(0))
 
-fov = 30
-confidence = 200
+fov = 20
+confidence = 120
+
 
 def have_neighbors(matrix, point):
     nhs = 5
@@ -21,11 +22,13 @@ def have_neighbors(matrix, point):
         return False
     return True
 
+
 def rgb2int(rgb):
     rgb_int = rgb[0]
     rgb_int = (rgb_int << 8) + rgb[1]
     rgb_int = (rgb_int << 8) + rgb[2]
     return rgb_int
+
 
 def detection(x, y, config):
     screen_shot = ImageGrab.grab((x - fov, y - fov, x + fov, y + fov))
