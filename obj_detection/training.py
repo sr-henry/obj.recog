@@ -1,8 +1,9 @@
-from time import sleep
-import win32api
-import win32con
-import win32gui
+import numpy as np
 from PIL import ImageGrab
+from time import sleep
+import win32con
+import win32api
+import win32gui
 import overlay
 
 _help = '''
@@ -12,13 +13,12 @@ _help = '''
     [END]       Exit
 '''
 
-white = set()
-black = set()
-
 _overlay = overlay.Overlay(win32gui.GetDC(0))
 
-fov = 20
 confidence = 120
+
+white = np.array([], dtype=int)
+black = np.array([], dtype=int)
 
 
 def rgb2int(rgb):
@@ -29,27 +29,26 @@ def rgb2int(rgb):
 
 
 def training(x, y, fx, fy):
+    global white
+    global black
     _overlay.create_box((x - fx, y - fy, x + fx, y + fy), win32api.RGB(255, 0, 0))
-    result = 0
     screen_shot = ImageGrab.grab((x - fx, y - fy, x + fx, y + fy))
-    image = list(screen_shot.getdata())
-    mapped = list(map(rgb2int, image))
-
-    for px in mapped:
-        if px in white and px not in black:
-            result += 1
-    
-    if result >= confidence:
+    image = np.asarray(screen_shot).reshape((fx*fy*4), 3)
+    mapped = np.array(list(map(rgb2int, image)))
+    config = np.delete(white, np.where(np.isin(white, black)))
+    result = mapped[np.where(np.isin(mapped, config))]
+    if result.size >= confidence:
         _overlay.create_box((x - fx, y - fy, x + fx, y + fy), win32api.RGB(0, 255, 0))
         if win32api.GetAsyncKeyState(win32con.VK_DELETE):
-            black.update(mapped)
+            black = np.unique(np.append(black, mapped))
     elif win32api.GetAsyncKeyState(win32con.VK_INSERT):
-        white.update(mapped)
+        white = np.unique(np.append(white, mapped))
+
 
 
 print(_help)
 
-is_on = False
+is_on = True
 
 FX = 20
 FY = 20
