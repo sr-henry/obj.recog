@@ -15,10 +15,20 @@ _help = '''
 
 _overlay = overlay.Overlay(win32gui.GetDC(0))
 
+fov = 20
 confidence = 120
 
 white = np.array([], dtype=int)
 black = np.array([], dtype=int)
+
+
+def load_config(file_name):
+    np.append(white, np.loadtxt(file_name, dtype=int, delimiter='\n'))
+
+
+def save_config(file_name):
+    config = np.delete(white, np.where(np.isin(white, black)))
+    np.savetxt(file_name, config, fmt='%d', delimiter='\n')
 
 
 def rgb2int(rgb):
@@ -28,30 +38,27 @@ def rgb2int(rgb):
     return rgb_int
 
 
-def training(x, y, fx, fy):
+def training(x, y):
     global white
     global black
-    _overlay.create_box((x - fx, y - fy, x + fx, y + fy), win32api.RGB(255, 0, 0))
-    screen_shot = ImageGrab.grab((x - fx, y - fy, x + fx, y + fy))
-    image = np.asarray(screen_shot).reshape((fx*fy*4), 3)
+    field_of_view = (x - fov, y - fov, x + fov, y + fov)
+    _overlay.create_box(field_of_view, win32api.RGB(255, 0, 0))
+    screen_shot = ImageGrab.grab(field_of_view)
+    image = np.asarray(screen_shot).reshape((fov*2)**2, 3)
     mapped = np.array(list(map(rgb2int, image)))
     config = np.delete(white, np.where(np.isin(white, black)))
     result = mapped[np.where(np.isin(mapped, config))]
     if result.size >= confidence:
-        _overlay.create_box((x - fx, y - fy, x + fx, y + fy), win32api.RGB(0, 255, 0))
+        _overlay.create_box(field_of_view, win32api.RGB(0, 255, 0))
         if win32api.GetAsyncKeyState(win32con.VK_DELETE):
             black = np.unique(np.append(black, mapped))
-    elif win32api.GetAsyncKeyState(win32con.VK_INSERT):
+    if win32api.GetAsyncKeyState(win32con.VK_INSERT):
         white = np.unique(np.append(white, mapped))
-
 
 
 print(_help)
 
-is_on = True
-
-FX = 20
-FY = 20
+is_on = False
 
 while True:
     if win32api.GetAsyncKeyState(win32con.VK_HOME):
@@ -64,18 +71,10 @@ while True:
         sleep(.2)
 
     if win32api.GetAsyncKeyState(win32con.VK_END):
+        save_config('teste.txt')
         break
-
-    if win32api.GetAsyncKeyState(win32con.VK_UP):
-        FY += 2
-    if win32api.GetAsyncKeyState(win32con.VK_DOWN):
-        FY -= 2
-    if win32api.GetAsyncKeyState(win32con.VK_RIGHT):
-        FX += 2
-    if win32api.GetAsyncKeyState(win32con.VK_LEFT):
-        FX -= 2
 
     if is_on:
         cx, cy = win32api.GetCursorPos()
-        training(cx, cy, FX, FY)
+        training(cx, cy)
     sleep(.1)

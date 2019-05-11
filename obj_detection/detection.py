@@ -33,7 +33,7 @@ def rgb2int(rgb):
 def detection(x, y, config):
     screen_shot = ImageGrab.grab((x - fov, y - fov, x + fov, y + fov))
     image = np.asarray(screen_shot).reshape((fov*2)**2, 3)
-    #?
+    # ?
     mapped = np.array(list(map(rgb2int, image))).reshape((fov * 2), (fov * 2))
     result = np.asarray(np.intersect1d(mapped, config))
     if result.size >= confidence:
@@ -42,11 +42,11 @@ def detection(x, y, config):
         coords = np.hstack((_y.reshape(_y.size, 1), _x.reshape(_x.size, 1)))
         zeros = np.zeros(mapped.shape, dtype=int)
         np.place(zeros, mask, result)
-        #?
+        # ?
         for c in coords:
-             if not have_neighbors(zeros, c):
-                 np.delete(coords, c)
-        #OVERLAY
+            if not have_neighbors(zeros, c):
+                np.delete(coords, c)
+        # OVERLAY
         p1 = np.amin(coords, axis=0)
         p2 = np.amax(coords, axis=0)
         box = (p1[0]+(x - fov), p1[1]+(y - fov), p2[0]+(x - fov), p2[1]+(y - fov))
