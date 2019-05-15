@@ -22,13 +22,9 @@ white = np.array([], dtype=int)
 black = np.array([], dtype=int)
 
 
-def load_config(file_name):
-    np.append(white, np.loadtxt(file_name, dtype=int, delimiter='\n'))
-
-
 def save_config(file_name):
-    config = np.delete(white, np.where(np.isin(white, black)))
-    np.savetxt(file_name, config, fmt='%d', delimiter='\n')
+    data2save = np.delete(white, np.where(np.isin(white, black)))
+    np.savetxt(file_name, data2save, fmt='%i', delimiter='\n')
 
 
 def rgb2int(rgb):
@@ -41,15 +37,17 @@ def rgb2int(rgb):
 def training(x, y):
     global white
     global black
-    field_of_view = (x - fov, y - fov, x + fov, y + fov)
-    _overlay.create_box(field_of_view, win32api.RGB(255, 0, 0))
-    screen_shot = ImageGrab.grab(field_of_view)
+    box = (x - fov, y - fov, x + fov, y + fov)
+    # overlay_________________________________________
+    _overlay.create_box(box, win32api.RGB(255, 0, 0))
+    screen_shot = ImageGrab.grab(box)
     image = np.asarray(screen_shot).reshape((fov*2)**2, 3)
     mapped = np.array(list(map(rgb2int, image)))
     config = np.delete(white, np.where(np.isin(white, black)))
     result = mapped[np.where(np.isin(mapped, config))]
     if result.size >= confidence:
-        _overlay.create_box(field_of_view, win32api.RGB(0, 255, 0))
+        # overlay_________________________________________
+        _overlay.create_box((x - fov, y - fov, x + fov, y + fov), win32api.RGB(0, 255, 0))
         if win32api.GetAsyncKeyState(win32con.VK_DELETE):
             black = np.unique(np.append(black, mapped))
     if win32api.GetAsyncKeyState(win32con.VK_INSERT):
@@ -71,7 +69,7 @@ while True:
         sleep(.2)
 
     if win32api.GetAsyncKeyState(win32con.VK_END):
-        save_config('teste.txt')
+        save_config('training.txt')
         break
 
     if is_on:
