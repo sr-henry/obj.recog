@@ -1,111 +1,78 @@
-import win32api
-import win32con
-import win32gui
+import numpy as np
 from PIL import ImageGrab
 from time import sleep
-from math import ceil
+import win32con
+import win32api
+import win32gui
+import overlay
 
-help = ''' 
-[@] REAL TIME Training 
-[HOME]   Start|Stop Training
-[INS]    Add color to set    (Only to not detection)
-[DEL]    Rmv color from set  (Only to wrong detection)
-[END]    Save configuration  (if not detecting)
+_help = '''
+    [HOME]      Start|Stop Training
+    [INSERT]    Add to white set
+    [DELETE]    Add to black set 
+    [END]       Exit
 '''
 
-dc = win32gui.GetDC(0)
+_overlay = overlay.Overlay(win32gui.GetDC(0))
 
-white = set()
-black = set()
+fov = 20
+confidence = 120
 
-fov = 25
-
-def show_fov(x, y, fov_color):
-    try:
-        for j in range(x - fov, x + fov):
-            win32gui.SetPixel(dc, j, y - fov, fov_color)
-        for i in range(y - fov, y + fov):
-            win32gui.SetPixel(dc, x - fov, i, fov_color)
-            win32gui.SetPixel(dc, x + fov, i, fov_color)
-        for k in range(x - fov, x + fov):
-            win32gui.SetPixel(dc, k, y + fov, fov_color)
-    except Exception as err:
-        print(err)
-
-def reshape(index):
-    ncol = fov * 2
-    lin = ceil(((index + 1) / ncol)) - 1
-    col = ((index + 1) % ncol) - 1
-    if col == -1:
-        col = ncol - 1
-    return col, lin
-
-def save_config():
-    with open('config.txt', 'w') as cfg:
-        config = list(map(lambda x: x not in black, white))
-        for data in config:
-            cfg.write(str(data) + '\n')
+white = np.array([], dtype=int)
+black = np.array([], dtype=int)
 
 
-def load_config():
-    try:
-        with open('config.txt', 'r') as cfg:
-            for data in cfg:
-                white.add(int(data.strip('\n')))
-    except Exception as err:
-        print(err)
+def save_config(file_name):
+    data2save = np.delete(white, np.where(np.isin(white, black)))
+    np.savetxt(file_name, data2save, fmt='%i', delimiter='\n')
 
 
-def rgb_2_int(rgb):
+def rgb2int(rgb):
     rgb_int = rgb[0]
     rgb_int = (rgb_int << 8) + rgb[1]
     rgb_int = (rgb_int << 8) + rgb[2]
     return rgb_int
 
 
-def training_data(x, y):
-    precision = 250
-    confidence = 0
-    screen = ImageGrab.grab((x - fov, y - fov, x + fov, y + fov))
-    im_int = list(map(rgb_2_int, list(screen.getdata())))
-    for color in im_int:
-        if color in white and color not in black:
-            confidence += 1
-        if confidence >= precision:
-            show_fov(x, y, win32api.RGB(255, 0, 0))
-            l,c = reshape(im_int.index(color))
-            win32gui.SetPixel(dc, x - fov + c, y - fov + l, win32api.RGB(255, 0, 0))
-            if win32api.GetAsyncKeyState(win32con.VK_DELETE):
-                black.add(color)
-        elif win32api.GetAsyncKeyState(win32con.VK_INSERT):
-            white.add(color)
-
-def init():
-
-    print(help)
-
-    load_config()
-
-    detection = False
-    while True:
-
-        if win32api.GetAsyncKeyState(win32con.VK_HOME):
-            if detection:
-                detection = False
-                print('[-] Detection Stop')
-            else:
-                detection = True
-                print('[+] Start Detection')
-            sleep(.2)
-
-        if win32api.GetAsyncKeyState(win32con.VK_END):
-            save_config()
-            print('[:] Configuration Saved')
-            sleep(.2)
-
-        if detection:
-            x, y = win32api.GetCursorPos()
-            training_data(x, y)
+def training(x, y):
+    global white
+    global black
+    box = (x - fov, y - fov, x + fov, y + fov)
+    # overlay_________________________________________
+    _overlay.create_box(box, win32api.RGB(255, 0, 0))
+    screen_shot = ImageGrab.grab(box)
+    image = np.asarray(screen_shot).reshape((fov*2)**2, 3)
+    mapped = np.array(list(map(rgb2int, image)))
+    config = np.delete(white, np.where(np.isin(white, black)))
+    result = mapped[np.where(np.isin(mapped, config))]
+    if result.size >= confidence:
+        # overlay_________________________________________
+        _overlay.create_box((x - fov, y - fov, x + fov, y + fov), win32api.RGB(0, 255, 0))
+        if win32api.GetAsyncKeyState(win32con.VK_DELETE):
+            black = np.unique(np.append(black, mapped))
+    if win32api.GetAsyncKeyState(win32con.VK_INSERT):
+        white = np.unique(np.append(white, mapped))
 
 
-init()
+print(_help)
+
+is_on = False
+
+while True:
+    if win32api.GetAsyncKeyState(win32con.VK_HOME):
+        if is_on:
+            is_on = False
+            print('[-] Stop')
+        else:
+            is_on = True
+            print('[+] Start')
+        sleep(.2)
+
+    if win32api.GetAsyncKeyState(win32con.VK_END):
+        save_config('training.txt')
+        break
+
+    if is_on:
+        cx, cy = win32api.GetCursorPos()
+        training(cx, cy)
+    sleep(.1)

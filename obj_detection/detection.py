@@ -1,94 +1,85 @@
-from math import ceil
-from time import sleep
-from win32api import GetAsyncKeyState, GetCursorPos, RGB
-from win32gui import GetDC
+import numpy as np
+from win32api import GetCursorPos, RGB, GetAsyncKeyState
 from PIL import ImageGrab
-from win32con import VK_HOME, VK_F4
+from time import sleep
 import overlay
-
-help = '''
-[@] REAL TIME Detection 
-[HOME]  Start|Stop Detection
-'''
+from win32gui import GetDC
+import win32con
 
 _overlay = overlay.Overlay(GetDC(0))
 
-config = set()
-
-fov = 30
-
-def check_neighbors(reshape_array):
-    nhsize = 5
-    neighbors = 0
-    for c in reshape_array:
-        for x in range(c[0] - nhsize, c[1] - nhsize):
-            for y in range(c[0] + nhsize, c[1] + nhsize):
-                if (x, y) in reshape_array:
-                    neighbors += 1
-        if neighbors < nhsize**2:
-            reshape_array.remove(c)
-    return reshape_array
+fov = 20
+confidence = 120
 
 
-def load_config():
-    try:
-        with open('config.txt', 'r') as cfg:
-            for data in cfg:
-                config.add(int(data.strip('\n')))
-            return True
-    except Exception as err:
-        print(err)
-        return False
+def have_neighbors(matrix, point):
+    nhs = 5
+    x0, y0 = (point[0]-nhs, point[1]-nhs)
+    x1, y1 = (point[0]+nhs, point[1]+nhs)
+    neighbor_hood = matrix[x0:x1+1, y0:y1+1]
+    result = np.count_nonzero(neighbor_hood)
+    if result < nhs*2 - 3:
+        return True
+    return False
 
-def rgb_2_int(rgb):
+
+def rgb2int(rgb):
     rgb_int = rgb[0]
     rgb_int = (rgb_int << 8) + rgb[1]
     rgb_int = (rgb_int << 8) + rgb[2]
     return rgb_int
 
-def reshape(index):
-    ncol = fov * 2
-    lin = ceil(((index + 1) / ncol)) - 1
-    col = ((index + 1) % ncol) - 1
-    if col == -1:
-        col = ncol - 1
-    return col, lin
 
-def detection(x, y):
-    precision = 150
-    screen = ImageGrab.grab((x - fov, y - fov, x + fov, y + fov))
-    im_int = list(map(rgb_2_int, list(screen.getdata())))
-    result = list(filter(lambda el: el in config, im_int))
-    if len(result) >= precision:
-        coords = list(map(lambda i: im_int.index(i), result))
-        fov_cords = list(map(reshape, coords))
-        abs_cords = list(map(lambda r: (((x - fov) + r[0]), ((y - fov) + r[1])), fov_cords))
-        #Overlay
-        #_overlay.create_pixelmap(abs_cords, RGB(0, 255, 0))
-        list_x = list(map(lambda x: x[0], abs_cords))
-        list_y = list(map(lambda y: y[1], abs_cords))
-        _overlay.create_box((min(list_x), min(list_y), max(list_x), max(list_y)), RGB(255, 0, 0))
+def detection(x, y, config):
+    screen_shot = ImageGrab.grab((x - fov, y - fov, x + fov, y + fov))
+    image = np.asarray(screen_shot).reshape((fov*2)**2, 3)
+    mapped = np.array(list(map(rgb2int, image))).reshape((fov * 2), (fov * 2))
+    result = np.asarray(np.intersect1d(mapped, config))
+    if result.size >= confidence:
+        mask = np.isin(mapped, result)
+        _x, _y = np.where(mask)
+        coords = np.hstack((_y.reshape(_y.size, 1), _x.reshape(_x.size, 1)))
+        zeros = np.zeros(mapped.shape, dtype=int)
+        np.place(zeros, mask, result)
+
+        filter_coords = np.array(list(filter(lambda k: have_neighbors(zeros, k), coords)))
+
+        # OVERLAY
+        p1 = np.amin(filter_coords, axis=0)
+        p2 = np.amax(filter_coords, axis=0)
+        box = (p1[0]+(x - fov), p1[1]+(y - fov), p2[0]+(x - fov), p2[1]+(y - fov))
+        _overlay.create_box(box, RGB(255, 0, 255))
 
 
-print(help)
+def main():
+    try:
+        config = np.loadtxt('config.txt', dtype=int, delimiter='\n')
+        print('Loaded')
+    except Exception as err:
+        print(err)
+        return
 
-tracking = False
-if load_config():
+    is_on = False
+
     while True:
-        if GetAsyncKeyState(VK_HOME):
-            if tracking:
-                tracking = False
-                print('[-] NO Tracking')
+        if GetAsyncKeyState(win32con.VK_HOME):
+            if is_on:
+                is_on = False
+                print('Detection Stoped')
             else:
-                tracking = True
-                print('[!] Tracking')
+                is_on = True
+                print('Detection Started')
             sleep(.2)
 
-        if tracking:
-            current_x, current_y = GetCursorPos()
-            detection(current_x, current_y)
-
-        if GetAsyncKeyState(VK_F4):
+        if GetAsyncKeyState(win32con.VK_END):
             break
 
+        if is_on:
+            current_x, current_y = GetCursorPos()
+            detection(current_x, current_y, config)
         sleep(.1)
+
+
+main()
+
+
