@@ -1,6 +1,12 @@
 import numpy as np
 from PIL import Image
-from statistics import mean
+
+
+def standard_deviation(values, ma):
+    n = len(values)
+    dif = np.array(list(map(lambda x: (((x - ma))**2 / n), values)))
+    return np.sqrt(np.sum(dif))
+
 
 def rgb_2_int(rgb):
     rgb_int = rgb[0]
@@ -30,12 +36,12 @@ def distance(array, point):
 
 
 def compute_distance(c1, c2):
-    return list(map(lambda point: distance(c2, point), c1))
+    return np.array(list(map(lambda point: distance(c2, point), c1)))
 
 
 def similarity_degree(values1, values2):
-    d1 = mean(values1)
-    d2 = mean(values2)
+    d1 = np.average(values1)
+    d2 = np.average(values2)
 
     print('\n[1] similarity degree: ' + str(d1))
     print('[2] similarity degree: ' + str(d2))
