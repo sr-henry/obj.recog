@@ -1,11 +1,11 @@
+import time
 import numpy as np
 from PIL import Image
+import sys
+from colorama import Fore, init, AnsiToWin32
 
-
-def standard_deviation(values, ma):
-    n = len(values)
-    dif = np.array(list(map(lambda x: (((x - ma))**2 / n), values)))
-    return np.sqrt(np.sum(dif))
+init(wrap=False)
+stream = AnsiToWin32(sys.stderr).stream
 
 
 def rgb_2_int(rgb):
@@ -18,6 +18,11 @@ def rgb_2_int(rgb):
 def image_2_matrix(im):
     base = np.asarray(im).reshape(400, 3)
     mapped = np.array(list(map(rgb_2_int, base))).reshape((20, 20))
+
+    x, y = np.where(mapped == 0)
+
+    mapped = mapped[min(x):max(x), min(y):max(y)] 
+
     return mapped
 
 
@@ -39,15 +44,32 @@ def compute_distance(c1, c2):
     return np.array(list(map(lambda point: distance(c2, point), c1)))
 
 
+def similarity(values1, values2):
+    #print(values1)
+    print(len(values1[np.where(values1 < 1.1)])) 
+    #print()
+    #print(values2)
+    print(len(values2[np.where(values2 < 1.1)]))
+
+
 def similarity_degree(values1, values2):
     d1 = np.average(values1)
     d2 = np.average(values2)
+    std1 = np.std(values1)
+    std2 = np.std(values2)
 
-    print('\n[1] similarity degree: ' + str(d1))
-    print('[2] similarity degree: ' + str(d2))
+    print('\n[1] M(A, B): ' + str(d1) + '\tstd: ' + str(std1))
+    print('[2] M(B, A): ' + str(d2) + '\tstd: ' + str(std2))
 
     return (d1 + d2) / 2
 
+
+def hausdorff(values1, values2):
+    H = max(max(values1), max(values2))
+    return H
+
+
+start = time.time()
 
 im_base = Image.open("base.png")
 im_cptr = Image.open("erro.png")
@@ -67,7 +89,20 @@ print('\naverage: ' + str(degree))
 
 print()
 
-if degree <= 1.34:
-    print('similar images')
+H = hausdorff(distances_1, distances_2)
+
+print('hausdorff: ' + str(H))
+
+print()
+
+print((H + degree)/2)
+
+if degree <= 1.3 and H <= 3.5:
+    print(Fore.GREEN + 'similar images', file=stream)
 else:
-    print('non-similar images')
+    print(Fore.RED + 'non-similar images', file=stream)
+
+end = time.time()
+
+print(Fore.YELLOW + '\ntime: ' + str(end - start), file=stream)
+
