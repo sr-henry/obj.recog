@@ -2,10 +2,6 @@ import time
 import numpy as np
 from PIL import Image
 import sys
-from colorama import Fore, init, AnsiToWin32
-
-init(wrap=False)
-stream = AnsiToWin32(sys.stderr).stream
 
 
 def compare_imgs(i1, i2, hausdorff = False):
@@ -14,8 +10,8 @@ def compare_imgs(i1, i2, hausdorff = False):
     distances_1 = compute_distance(coords1, coords2)
     distances_2 = compute_distance(coords2, coords1)
     degree = similarity_degree(distances_1, distances_2)
+    H = max(max(distances_1), max(distances_2))
     if hausdorff:
-        H = max(max(distances_1), max(distances_2))
         return degree, H
     return degree
 
@@ -80,31 +76,37 @@ def compute_distance(c1, c2):
 def similarity_degree(values1, values2):
     d1 = np.average(values1)
     d2 = np.average(values2)
-    # std1 = np.std(values1)
-    # std2 = np.std(values2)
-    # print('\n[1] M(A, B): ' + str(d1) + '\tstd: ' + str(std1))
-    # print('[2] M(B, A): ' + str(d2) + '\tstd: ' + str(std2))
+    #std1 = np.std(values1)
+    #std2 = np.std(values2)
+    #print('\n[1] M(A, B): ' + str(d1) + '\tstd: ' + str(std1))
+    #print('[2] M(B, A): ' + str(d2) + '\tstd: ' + str(std2))
     return (d1 + d2) / 2
 
+
+img_name = sys.argv[1]
 
 start = time.time()
 
 matrix_base = image_2_matrix(Image.open("base.png"))
-matrix_cptr = image_2_matrix(Image.open("erro.png"))
+matrix_cptr = image_2_matrix(Image.open(img_name))
 
-base = select_img(matrix_base)
-cptr = select_img(matrix_cptr)
-
+base = matrix_base#select_img(matrix_base)
+cptr = matrix_cptr#select_img(matrix_cptr)
 
 # ======================================================================
-print('\nCHECK_IMAGE_PARTS___________________________________\n')
 dist_matrix = np.array(compare_sub(matrix_base, matrix_cptr))
-print(str(dist_matrix) + '\n')
-print(str(list(map(lambda el: min(el), dist_matrix))) + '\n')
-print(dist_matrix.diagonal())
+print('\n' + str(dist_matrix) + '\n')
+
+minimum = np.array(list(map(lambda el: min(el), dist_matrix)))
+#minimum = list(filter(lambda x: x <= 1.35, minimum))
+print(minimum)
+diagonal = np.array(list(filter(lambda el: el <= 1.35, dist_matrix.diagonal())))
+print(diagonal)
+
+print(np.average(diagonal))
+
 print('____________________________________________________')
 # ======================================================================
-
 
 degree, H = compare_imgs(base, cptr, True)
 
@@ -112,13 +114,13 @@ print('\naverage: ' + str(degree) + '\n')
 
 print('hausdorff: ' + str(H) + '\n')
 
-if degree <= 1.35 and H <= 3.6:
-    print(Fore.GREEN + 'similar images', file=stream)
+if degree <= 1.35 and H <= 4:
+    print('similar images')
 else:
-    print(Fore.RED + 'non-similar images', file=stream)
-
-    print(Fore.WHITE, file=stream)
+    print('non-similar images')
+    if H < 5:
+        print('\nLet me check again...')
     
 end = time.time()
 
-print(Fore.YELLOW + '\ntime: ' + str(end - start), file=stream)
+print('\ntime: ' + str(end - start))
