@@ -1,5 +1,6 @@
 from win32gui import SetPixel
 
+
 class Overlay:
     def __init__(self, device_context):
         self.dc = device_context
