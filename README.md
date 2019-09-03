@@ -8,7 +8,7 @@ Tem como objetivo detectar objetos em tempo real ultilizando um conjunto de core
 
 ORIGINAL | DETECTION
 ------------ | -------------
-![.](https://drive.google.com/open?id=1cUDest0TOSdlENVhR64FYlBHafECYbZd) | ![.](https://drive.google.com/open?id=1b0tJUoTJzcCXBw7Q2ArLLLAT3u9b_QEO)
+![screen](https://user-images.githubusercontent.com/37659078/64205139-ad8d8180-ce6d-11e9-8cbf-877f63d58c2a.png) | ![result](https://user-images.githubusercontent.com/37659078/64205141-ad8d8180-ce6d-11e9-8a66-5fa0385d8511.png)
 
 
 ## TODOS
